@@ -1,0 +1,80 @@
+name: Diagnose portable Natron2.6_patch
+
+on:
+  push:
+    branches:
+      - niik-diag
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  diag:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          release: false
+          update: false
+          install: p7zip mingw-w64-ucrt-x86_64-ntldd
+
+      - name: Download Natron2.6_patch
+        uses: actions/download-artifact@v4
+        with:
+          name: Natron2.6_patch
+          run-id: 43843287674
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: art
+
+      - name: Extract
+        run: |
+          cd art && 7z x -y Natron2.6_patch.7z > /dev/null && ls Natron2.6_patch && ls Natron2.6_patch/App | head -20
+          ls Natron2.6_patch/App | wc -l; ls Natron2.6_patch/lib
+
+      - name: Missing DLLs (ntldd, clean PATH)
+        run: |
+          cd art/Natron2.6_patch/App
+          PATH="/c/Windows/System32:/c/Windows:/usr/bin" ntldd -R Natron.exe 2>&1 | grep -iE "not found|=> *$" | sort -u | head -50 || true
+          echo "---- Renderer"
+          cd ../Renderer
+          PATH="/c/Windows/System32:/c/Windows:/usr/bin" ntldd -R NatronRenderer.exe 2>&1 | grep -iE "not found" | sort -u | head -50 || true
+
+      - name: Run NatronRenderer -v (clean PATH, print everything)
+        run: |
+          cd art/Natron2.6_patch/Renderer
+          set +e
+          PATH="/usr/bin:/c/Windows/System32:/c/Windows" timeout 180 ./NatronRenderer.exe -v 2>&1 | tail -80
+          rc=${PIPESTATUS[0]}
+          printf 'exit code: %d (0x%08X)\n' "$rc" "$rc"
+          exit 0
+
+      - name: Run NatronRenderer with Python test script (like 07-verify)
+        run: |
+          cd art/Natron2.6_patch/Renderer
+          cat > /tmp/t.py <<'PY'
+          import sys
+          print("PYTHON", sys.version)
+          import NatronEngine
+          print("ENGINE OK", NatronEngine.natron.getNatronVersionString())
+          print("PLUGINS", len(NatronEngine.natron.getPluginIDs()))
+          print("RESULT DONE_OK")
+          PY
+          set +e
+          PATH="/usr/bin:/c/Windows/System32:/c/Windows" timeout 300 ./NatronRenderer.exe -t "$(cygpath -w /tmp/t.py)" < /dev/null 2>&1 | tail -120
+          rc=${PIPESTATUS[0]}
+          printf 'exit code: %d (0x%08X)\n' "$rc" "$rc"
+          exit 0
+
+      - name: Run Natron.exe GUI briefly (offscreen)
+        run: |
+          cd art/Natron2.6_patch/App
+          set +e
+          QT_QPA_PLATFORM=offscreen PATH="/usr/bin:/c/Windows/System32:/c/Windows" timeout 60 ./Natron.exe 2>&1 | tail -80
+          rc=${PIPESTATUS[0]}
+          printf 'exit code: %d (0x%08X) [124 = still running after 60s = started OK]\n' "$rc" "$rc"
+          exit 0
