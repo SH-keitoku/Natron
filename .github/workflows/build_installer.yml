@@ -32,6 +32,7 @@ jobs:
       - name: Install Natron pacman repository
         run: |
           ${GITHUB_WORKSPACE}/.github/workflows/install_natron_pacman_repo.sh ${GITHUB_WORKSPACE} ${GITHUB_WORKSPACE}/natron_pacman_repo
+          ${GITHUB_WORKSPACE}/.github/workflows/install_removed_msys2_pkgs.sh
           pacman -S --needed --noconfirm --overwrite "*" mingw-w64-x86_64-natron-build-deps-qt5
 
       - name: Build
@@ -135,6 +136,7 @@ jobs:
       - name: Install Natron pacman repository
         run: |
           ${GITHUB_WORKSPACE}/.github/workflows/install_natron_pacman_repo.sh ${GITHUB_WORKSPACE} ${GITHUB_WORKSPACE}/natron_pacman_repo
+          ${GITHUB_WORKSPACE}/.github/workflows/install_removed_msys2_pkgs.sh
           pacman -S --needed --noconfirm --overwrite "*" mingw-w64-x86_64-natron-build-deps-qt5
 
       - name: Build
