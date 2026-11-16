@@ -154,11 +154,33 @@ if [ "$QT_VERSION_MAJOR" = 5 ]; then
     esac
 
     rm Engine/Qt${QT_VERSION_MAJOR}/NatronEngine/* Gui/Qt${QT_VERSION_MAJOR}/NatronGui/* || true
-    SHIBOKEN_INCLUDE_PATHS="-I. -I./Engine -I./Global -Ilibs/OpenFX/include -I${UNIX_SDK_HOME}/include -I${QTDIR}/include -I${QTDIR}/include/QtCore -I${UNIX_PYTHON_HOME}/include/python${PYVER} -I${UNIX_PYTHON_HOME}/include/PySide2 -I${UNIX_PYTHON_HOME}/include/PySide2/QtCore -I${UNIX_PYTHON_HOME}/include/PySide2/QtGui -I${UNIX_PYTHON_HOME}/lib/python${PYVER}/site-packages/PySide2/include -I${UNIX_PYTHON_HOME}/lib/python${PYVER}/site-packages/PySide2/include/QtCore -I${UNIX_PYTHON_HOME}/lib/python${PYVER}/site-packages/PySide2/include/QtGui"
+    # [local patch] newer MSYS2 qt5-base packages no longer install headers in $QTDIR/include:
+    # find the directory that actually contains QtCore/QtGlobal.
+    QT_HEADERS=""
+    QMAKE_HEADERS="$("$QMAKE" -query QT_INSTALL_HEADERS 2>/dev/null || true)"
+    if [ -n "${QMAKE_HEADERS}" ] && command -v cygpath >/dev/null 2>&1; then
+        QMAKE_HEADERS="$(cygpath -u "${QMAKE_HEADERS}")"
+    fi
+    for d in "${QMAKE_HEADERS}" "${QTDIR}/include" "${UNIX_SDK_HOME:-$SDK_HOME}/include/qt${QT_VERSION_MAJOR}" "${UNIX_SDK_HOME:-$SDK_HOME}/qt${QT_VERSION_MAJOR}/include"; do
+        if [ -n "$d" ] && [ -f "$d/QtCore/QtGlobal" ]; then
+            QT_HEADERS="$d"
+            break
+        fi
+    done
+    if [ -z "${QT_HEADERS}" ]; then
+        QTGLOBAL_FOUND="$(find "${UNIX_SDK_HOME:-$SDK_HOME}" -path '*QtCore/QtGlobal' 2>/dev/null | grep -v qt6 | head -1)"
+        if [ -n "${QTGLOBAL_FOUND}" ]; then
+            QT_HEADERS="$(dirname "$(dirname "${QTGLOBAL_FOUND}")")"
+        else
+            QT_HEADERS="${QTDIR}/include"
+        fi
+    fi
+    echo "Info: using Qt headers from ${QT_HEADERS} (qmake says: ${QMAKE_HEADERS})"
+    SHIBOKEN_INCLUDE_PATHS="-I. -I./Engine -I./Global -Ilibs/OpenFX/include -I${UNIX_SDK_HOME}/include -I${QT_HEADERS} -I${QT_HEADERS}/QtCore -I${UNIX_PYTHON_HOME}/include/python${PYVER} -I${UNIX_PYTHON_HOME}/include/PySide2 -I${UNIX_PYTHON_HOME}/include/PySide2/QtCore -I${UNIX_PYTHON_HOME}/include/PySide2/QtGui -I${UNIX_PYTHON_HOME}/lib/python${PYVER}/site-packages/PySide2/include -I${UNIX_PYTHON_HOME}/lib/python${PYVER}/site-packages/PySide2/include/QtCore -I${UNIX_PYTHON_HOME}/lib/python${PYVER}/site-packages/PySide2/include/QtGui"
     SHIBOKEN_TYPESYSTEM_PATHS="-T${UNIX_PYTHON_HOME}/share/PySide2/typesystems -T${UNIX_PYTHON_HOME}/lib/python${PYVER}/site-packages/PySide2/typesystems"
     shiboken2 -std=c++17 --avoid-protected-hack --enable-pyside-extensions ${SHIBOKEN_INCLUDE_PATHS} ${SHIBOKEN_TYPESYSTEM_PATHS} --output-directory=Engine/Qt${QT_VERSION_MAJOR} Engine/Pyside2_Engine_Python.h  Engine/typesystem_engine.xml
 
-    shiboken2 -std=c++17 --avoid-protected-hack --enable-pyside-extensions ${SHIBOKEN_INCLUDE_PATHS} -I${QTDIR}/include/QtWidgets -I${QTDIR}/include/QtGui -I${QTDIR}/include/QtCore  ${SHIBOKEN_TYPESYSTEM_PATHS} -T./Engine -T./Shiboken --output-directory=Gui/Qt${QT_VERSION_MAJOR} Gui/PySide2_Gui_Python.h  Gui/typesystem_natronGui.xml
+    shiboken2 -std=c++17 --avoid-protected-hack --enable-pyside-extensions ${SHIBOKEN_INCLUDE_PATHS} -I${QT_HEADERS}/QtWidgets -I${QT_HEADERS}/QtGui -I${QT_HEADERS}/QtCore  ${SHIBOKEN_TYPESYSTEM_PATHS} -T./Engine -T./Shiboken --output-directory=Gui/Qt${QT_VERSION_MAJOR} Gui/PySide2_Gui_Python.h  Gui/typesystem_natronGui.xml
 
     python3 tools/utils/sourceCleanup.py Engine/typesystem_engine.xml Engine/Qt${QT_VERSION_MAJOR}
     python3 tools/utils/sourceCleanup.py Gui/typesystem_natronGui.xml Gui/Qt${QT_VERSION_MAJOR}
