@@ -36,7 +36,7 @@ jobs:
           msystem: MINGW64
           release: false
           update: true
-          install: git p7zip
+          install: git p7zip mingw-w64-x86_64-toolchain
 
       - name: Disk space before build
         run: df -h /c /d || true
