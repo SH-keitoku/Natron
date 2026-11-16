@@ -1190,7 +1190,27 @@ Node::loadKnob(const KnobIPtr & knob,
         }
 
         if (knob->getName() == kOfxImageEffectFileParamName) {
-            computeFrameRangeForReader( knob.get() );
+            // [local patch] If the project already stores a valid original frame range for this
+            // reader, do not rescan the whole directory on load: on network shares, listing a
+            // folder with thousands of files can take seconds per Read node and freezes the UI.
+            bool hasSerializedFrameRange = false;
+            for (NodeSerialization::KnobValues::const_iterator it2 = knobsValues.begin(); it2 != knobsValues.end(); ++it2) {
+                if ( (*it2)->getName() != kReaderParamNameOriginalFrameRange ) {
+                    continue;
+                }
+                KnobInt* serializedRange = dynamic_cast<KnobInt*>( (*it2)->getKnob().get() );
+                if ( serializedRange && (serializedRange->getDimension() == 2) ) {
+                    int first = serializedRange->getValue(0);
+                    int last = serializedRange->getValue(1);
+                    hasSerializedFrameRange = ( first != std::numeric_limits<int>::min() ) &&
+                                              ( last != std::numeric_limits<int>::max() ) &&
+                                              (first <= last);
+                }
+                break;
+            }
+            if (!hasSerializedFrameRange) {
+                computeFrameRangeForReader( knob.get() );
+            }
         }
 
         //}

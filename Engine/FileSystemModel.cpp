@@ -1805,17 +1805,62 @@ FileSystemModel::filesListFromPattern(const std::string& pattern, SequenceParsin
     std::string patternCpy = pattern;
     std::string patternPath = SequenceParsing::removePath(patternCpy);
 
+    // [local patch] Short-lived cache of directory listings.
+    // Listing a network folder (SMB/NFS) with many files is slow, and this function is called
+    // several times per Read node (and for every Read node pointing to the same folder) while a
+    // project loads. Cache each listing for a few seconds so the folder is only enumerated once.
+    static const qint64 kDirListingCacheMSecs = 10000;
+    struct DirListingCacheEntry
+    {
+        qint64 timestamp;
+        bool exists;
+        SequenceParsing::StringList files;
+    };
+    static QMutex dirListingCacheMutex;
+    static std::map<std::string, DirListingCacheEntry> dirListingCache;
+
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    SequenceParsing::StringList filesList;
+    {
+        QMutexLocker locker(&dirListingCacheMutex);
+        std::map<std::string, DirListingCacheEntry>::iterator found = dirListingCache.find(patternPath);
+        if ( ( found != dirListingCache.end() ) && (now - found->second.timestamp < kDirListingCacheMSecs) ) {
+            if (!found->second.exists) {
+                return false;
+            }
+            filesList = found->second.files;
+
+            return SequenceParsing::filesListFromPattern_fast(pattern, filesList, sequence);
+        }
+    }
+
     QDir dir(QString::fromUtf8(patternPath.c_str()));
-    if (!dir.exists()) {
+    DirListingCacheEntry entry;
+    entry.timestamp = now;
+    entry.exists = dir.exists();
+    if (entry.exists) {
+        QStringList files = dir.entryList(QDir::Files | QDir::NoDotAndDotDot);
+        for (QStringList::iterator it = files.begin(); it!=files.end(); ++it) {
+            entry.files.push_back(it->toStdString());
+        }
+    }
+    {
+        QMutexLocker locker(&dirListingCacheMutex);
+        // drop stale entries so the cache does not grow forever
+        for (std::map<std::string, DirListingCacheEntry>::iterator it = dirListingCache.begin(); it != dirListingCache.end();) {
+            if (now - it->second.timestamp >= kDirListingCacheMSecs) {
+                dirListingCache.erase(it++);
+            } else {
+                ++it;
+            }
+        }
+        dirListingCache[patternPath] = entry;
+    }
+    if (!entry.exists) {
         return false;
     }
+    filesList = entry.files;
 
-    QStringList files = dir.entryList(QDir::Files | QDir::NoDotAndDotDot);
-
-    SequenceParsing::StringList filesList;
-    for (QStringList::iterator it = files.begin(); it!=files.end(); ++it) {
-        filesList.push_back(it->toStdString());
-    }
     return SequenceParsing::filesListFromPattern_fast(pattern, filesList, sequence);
 }
 
