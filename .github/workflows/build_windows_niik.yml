@@ -36,10 +36,13 @@ jobs:
           msystem: UCRT64
           release: false
           update: true
-          install: git p7zip mingw-w64-ucrt-x86_64-toolchain
+          install: git p7zip mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-make mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-gcc
 
-      - name: Disk space before build
-        run: df -h /c /d || true
+      - name: Disk space and toolchain check
+        run: |
+          df -h /c /d || true
+          ls /c/msys64/ucrt64/bin/ | grep -E '^(gcc|g\+\+|mingw32-make|cmake)(\.exe)?$' || true
+          which gcc g++ mingw32-make cmake || true
 
       - name: Build (phases 00-06)
         run: |
