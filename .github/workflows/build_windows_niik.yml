@@ -30,19 +30,21 @@ jobs:
           submodules: recursive
 
       # The win-build scripts expect MSYS2 at C:\msys64 (preinstalled on the runner).
-      - name: Set up MSYS2 (C:\msys64)
+      - name: Set up MSYS2 (C:\msys64, UCRT64)
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           release: false
           update: true
-          install: git p7zip mingw-w64-x86_64-toolchain
+          install: git p7zip mingw-w64-ucrt-x86_64-toolchain
 
       - name: Disk space before build
         run: df -h /c /d || true
 
       - name: Build (phases 00-06)
         run: |
+          ROOT="$(cd Natron/.. && pwd)"
+          bash Natron/.github/workflows/retarget_ucrt64.sh Natron/tools/win-build Natron
           cd Natron/tools/win-build
           mkdir -p logs
           for ph in 00-deps 01-clone 02-patch 03-cycles 04-natron 05-plugins 06-install; do
@@ -52,6 +54,11 @@ jobs:
             if [ "$status" -ne 0 ]; then
               echo "::error::phase $ph failed with status $status"
               exit "$status"
+            fi
+            if [ "$ph" = "01-clone" ]; then
+              # retarget the helper repos cloned next to Natron as well
+              bash "$ROOT/Natron/.github/workflows/retarget_ucrt64.sh" \
+                "$ROOT/cycles" "$ROOT/openfx-misc" "$ROOT/openfx-io" "$ROOT/openfx-arena" "$ROOT/nik-kit-natron"
             fi
             df -h /c /d || true
           done
