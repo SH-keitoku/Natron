@@ -63,6 +63,10 @@ jobs:
               bash "$ROOT/Natron/.github/workflows/retarget_ucrt64.sh" \
                 "$ROOT/cycles" "$ROOT/openfx-misc" "$ROOT/openfx-io" "$ROOT/openfx-arena" "$ROOT/nik-kit-natron"
             fi
+            if [ "$ph" = "02-patch" ]; then
+              # FFmpeg 8 (UCRT64) removed AVCodec::pix_fmts used by the pinned openfx-io
+              bash "$ROOT/Natron/.github/workflows/patch_openfx_io_ffmpeg8.sh" "$ROOT/openfx-io"
+            fi
             df -h /c /d || true
           done
 
