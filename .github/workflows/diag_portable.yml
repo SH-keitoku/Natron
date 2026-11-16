@@ -21,7 +21,7 @@ jobs:
           msystem: UCRT64
           release: false
           update: false
-          install: p7zip mingw-w64-ucrt-x86_64-ntldd
+          install: p7zip mingw-w64-ucrt-x86_64-gdb
 
       - name: Download Natron2.6_patch
         uses: actions/download-artifact@v4
@@ -36,13 +36,15 @@ jobs:
           cd art && 7z x -y Natron2.6_patch.7z > /dev/null && ls Natron2.6_patch && ls Natron2.6_patch/App | head -20
           ls Natron2.6_patch/App | wc -l; ls Natron2.6_patch/lib
 
-      - name: Missing DLLs (ntldd, clean PATH)
+      - name: Backtrace of the startup exception (gdb)
         run: |
-          cd art/Natron2.6_patch/App
-          PATH="/c/Windows/System32:/c/Windows:/usr/bin" ntldd -R Natron.exe 2>&1 | grep -iE "not found|=> *$" | sort -u | head -50 || true
-          echo "---- Renderer"
-          cd ../Renderer
-          PATH="/c/Windows/System32:/c/Windows:/usr/bin" ntldd -R NatronRenderer.exe 2>&1 | grep -iE "not found" | sort -u | head -50 || true
+          cd art/Natron2.6_patch/Renderer
+          set +e
+          PATH="/usr/bin:/c/Windows/System32:/c/Windows:/c/msys64/ucrt64/bin" timeout 600 gdb -q -batch \
+            -ex "set pagination off" -ex "set print thread-events off" \
+            -ex "catch throw" -ex "run" -ex "bt 40" -ex "info sharedlibrary" \
+            --args ./NatronRenderer.exe -v 2>&1 | grep -v "^\[New Thread\|^\[Thread" | head -250
+          exit 0
 
       - name: Run NatronRenderer -v (clean PATH, print everything)
         run: |
