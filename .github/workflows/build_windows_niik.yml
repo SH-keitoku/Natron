@@ -66,6 +66,8 @@ jobs:
             if [ "$ph" = "02-patch" ]; then
               # FFmpeg 8 (UCRT64) removed AVCodec::pix_fmts used by the pinned openfx-io
               bash "$ROOT/Natron/.github/workflows/patch_openfx_io_ffmpeg8.sh" "$ROOT/openfx-io"
+              # GCC 16: Cycles locked a not-yet-constructed static mutex during static init
+              bash "$ROOT/Natron/.github/workflows/patch_cycles_static_mutex.sh" "$ROOT/cycles"
             fi
             df -h /c /d || true
           done
@@ -75,6 +77,20 @@ jobs:
         run: |
           cd Natron/tools/win-build
           bash ./07-verify.sh 2>&1 | tee logs/07-verify.log
+
+      - name: Smoke test (print startup output, non-fatal)
+        continue-on-error: true
+        run: |
+          ROOT="$(cd Natron/.. && pwd)"
+          cd "$ROOT/Natron-install/Renderer"
+          set +e
+          PATH="/usr/bin:/c/Windows/System32:/c/Windows" timeout 180 ./NatronRenderer.exe -v 2>&1 | tail -40
+          printf 'NatronRenderer -v exit code: %d\n' "${PIPESTATUS[0]}"
+          cd "$ROOT/Natron-install/App"
+          QT_QPA_PLATFORM=offscreen PATH="/usr/bin:/c/Windows/System32:/c/Windows" timeout 60 ./Natron.exe 2>&1 | tail -40
+          printf 'Natron.exe exit code: %d (124 = still running after 60s = started)\n' "${PIPESTATUS[0]}"
+          cat "$ROOT/Natron/tools/win-build/logs/07-verify.log" 2>/dev/null | tail -40
+          exit 0
 
       - name: Package Natron2.6_patch
         id: package
