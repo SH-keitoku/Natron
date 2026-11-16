@@ -1,0 +1,95 @@
+name: Build Windows (win-build scripts, network-load-fix)
+
+# Builds this branch on Windows with the tools/win-build/ push-button scripts
+# (Qt6 + PySide6 + Cycles + OFX plugins) and uploads a portable 7z bundle.
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - niik-network-load-fix
+
+jobs:
+  windows:
+    name: Windows portable build
+    runs-on: windows-2022
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Enable long paths for git
+        shell: pwsh
+        run: git config --system core.longpaths true
+
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          path: Natron
+          submodules: recursive
+
+      # The win-build scripts expect MSYS2 at C:\msys64 (preinstalled on the runner).
+      - name: Set up MSYS2 (C:\msys64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          release: false
+          update: true
+          install: git p7zip
+
+      - name: Disk space before build
+        run: df -h /c /d || true
+
+      - name: Build (phases 00-06)
+        run: |
+          cd Natron/tools/win-build
+          mkdir -p logs
+          for ph in 00-deps 01-clone 02-patch 03-cycles 04-natron 05-plugins 06-install; do
+            echo "==================== $ph ===================="
+            bash "./$ph.sh" 2>&1 | tee "logs/$ph.log"
+            status=${PIPESTATUS[0]}
+            if [ "$status" -ne 0 ]; then
+              echo "::error::phase $ph failed with status $status"
+              exit "$status"
+            fi
+            df -h /c /d || true
+          done
+
+      - name: Verify (phase 07, non-fatal on headless CI)
+        continue-on-error: true
+        run: |
+          cd Natron/tools/win-build
+          bash ./07-verify.sh 2>&1 | tee logs/07-verify.log
+
+      - name: Package Natron2.6_patch
+        id: package
+        run: |
+          ROOT="$(cd Natron/.. && pwd)"
+          cd "$ROOT"
+          test -d Natron-install
+          mv Natron-install Natron2.6_patch
+          # strip debug info from the executables to keep the archive small
+          for exe in Natron2.6_patch/App/Natron.exe Natron2.6_patch/App/NatronRenderer.exe \
+                     Natron2.6_patch/Renderer/NatronRenderer.exe; do
+            [ -f "$exe" ] && strip --strip-debug "$exe" || true
+          done
+          7z a -t7z -mx=5 -mmt=on Natron2.6_patch.7z Natron2.6_patch > /dev/null
+          ls -la Natron2.6_patch.7z
+          echo "ARCHIVE=$(cygpath -m "$ROOT/Natron2.6_patch.7z")" >> $GITHUB_OUTPUT
+
+      - name: Upload Natron2.6_patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: Natron2.6_patch
+          path: ${{ steps.package.outputs.ARCHIVE }}
+          compression-level: 0
+          retention-days: 14
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-build-logs
+          path: Natron/tools/win-build/logs
+          retention-days: 14
