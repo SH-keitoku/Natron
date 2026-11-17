@@ -146,7 +146,7 @@ basic_ifstream<_CharT, _Traits>::open_internal(const std::wstring& path,
 
         return;
     }
-    __sb_ = new stdio_filebuf(fd, mode, 1);
+    __sb_ = new stdio_filebuf(fd, mode, 1 << 16); // [local patch] was 1 (unbuffered): every byte became a separate read/write syscall, i.e. one SMB round trip per byte on network shares
     if (__sb_ == 0) {
         this->setstate(std::ios_base::failbit);
 
@@ -279,7 +279,7 @@ basic_ofstream<_CharT, _Traits>::open_internal(const std::wstring& path,
 
         return;
     }
-    __sb_ = new stdio_filebuf(fd, mode, 1);
+    __sb_ = new stdio_filebuf(fd, mode, 1 << 16); // [local patch] was 1 (unbuffered): every byte became a separate read/write syscall, i.e. one SMB round trip per byte on network shares
     if (__sb_ == 0) {
         this->setstate(std::ios_base::failbit);
 
