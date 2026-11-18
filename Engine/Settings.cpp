@@ -544,6 +544,14 @@ Settings::initializeKnobsProjectSetup()
                                                   "until you press the viewer's Pause button again. Useful for heavy projects whose sources are on "
                                                   "a network share.") );
     _projectsPage->addKnob(_pauseViewerOnProjectLoad);
+
+    // [local patch] the saved file keeps no viewer connection (the open project is left as it is)
+    _disconnectViewersOnSave = AppManager::createKnob<KnobBool>( this, tr("Disconnect viewers in saved projects") );
+    _disconnectViewersOnSave->setName("disconnectViewersOnSave");
+    _disconnectViewersOnSave->setHintToolTip( tr("If checked, projects are saved with every viewer disconnected, so opening them "
+                                                 "renders nothing until you connect a viewer again. The viewers of the project "
+                                                 "you are working on stay connected.") );
+    _projectsPage->addKnob(_disconnectViewersOnSave);
 }
 
 void
@@ -1721,6 +1729,7 @@ Settings::setDefaultValues()
     _fixPathsOnProjectPathChanged->setDefaultValue(true);
     //_enableMappingFromDriveLettersToUNCShareNames
     _pauseViewerOnProjectLoad->setDefaultValue(true);
+    _disconnectViewersOnSave->setDefaultValue(true);
 
     // General/Documentation
     _wwwServerPort->setDefaultValue(0);
@@ -2928,6 +2937,12 @@ bool
 Settings::isPauseViewerOnProjectLoadEnabled() const
 {
     return _pauseViewerOnProjectLoad->getValue();
+}
+
+bool
+Settings::isDisconnectViewersOnSaveEnabled() const
+{
+    return _disconnectViewersOnSave->getValue();
 }
 
 #ifdef NATRON_DOCUMENTATION_ONLINE

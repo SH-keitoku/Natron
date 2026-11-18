@@ -163,6 +163,8 @@ public:
 
     bool isPauseViewerOnProjectLoadEnabled() const;
 
+    bool isDisconnectViewersOnSaveEnabled() const;
+
     void getOpenFXPluginsSearchPaths(std::list<std::string>* paths) const;
 
     bool getUseStdOFXPluginsLocation() const;
@@ -503,6 +505,7 @@ private:
     KnobBoolPtr _fixPathsOnProjectPathChanged;
     KnobBoolPtr _enableMappingFromDriveLettersToUNCShareNames;
     KnobBoolPtr _pauseViewerOnProjectLoad;
+    KnobBoolPtr _disconnectViewersOnSave;
 
     // General/Documentation
     KnobPagePtr _documentationPage;

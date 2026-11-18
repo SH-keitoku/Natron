@@ -52,9 +52,15 @@ NodeCollectionSerialization::initialize(const NodeCollection& group)
 
     _serializedNodes.clear();
 
+    // [local patch] Preferences > Project Setup > "Disconnect viewers in saved projects":
+    // the saved file keeps no viewer input, so opening it renders nothing until a viewer
+    // is connected again. The viewers of the open project stay connected.
+    const bool dropViewerInputs = appPTR->getCurrentSettings()->isDisconnectViewersOnSaveEnabled();
+
     for (NodesList::iterator it = nodes.begin(); it != nodes.end(); ++it) {
         if ( !(*it)->getParentMultiInstance() && (*it)->isPartOfProject() ) {
-            NodeSerializationPtr state = std::make_shared<NodeSerialization>(*it);
+            const bool serializeInputs = !( dropViewerInputs && (*it)->isEffectViewer() );
+            NodeSerializationPtr state = std::make_shared<NodeSerialization>(*it, serializeInputs);
             _serializedNodes.push_back(state);
         }
     }
