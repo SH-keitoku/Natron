@@ -536,6 +536,14 @@ Settings::initializeKnobsProjectSetup()
     _enableMappingFromDriveLettersToUNCShareNames->setAllDimensionsEnabled(false);
 #endif
     _projectsPage->addKnob(_enableMappingFromDriveLettersToUNCShareNames);
+
+    // [local patch] keep heavy trees from rendering (and freezing the UI) right after a project is opened
+    _pauseViewerOnProjectLoad = AppManager::createKnob<KnobBool>( this, tr("Pause viewers when opening a project") );
+    _pauseViewerOnProjectLoad->setName("pauseViewerOnProjectLoad");
+    _pauseViewerOnProjectLoad->setHintToolTip( tr("If checked, every viewer of a project that is being opened starts paused, so nothing is rendered "
+                                                  "until you press the viewer's Pause button again. Useful for heavy projects whose sources are on "
+                                                  "a network share.") );
+    _projectsPage->addKnob(_pauseViewerOnProjectLoad);
 }
 
 void
@@ -1712,6 +1720,7 @@ Settings::setDefaultValues()
     _autoPreviewEnabledForNewProjects->setDefaultValue(true, 0);
     _fixPathsOnProjectPathChanged->setDefaultValue(true);
     //_enableMappingFromDriveLettersToUNCShareNames
+    _pauseViewerOnProjectLoad->setDefaultValue(true);
 
     // General/Documentation
     _wwwServerPort->setDefaultValue(0);
@@ -2913,6 +2922,12 @@ bool
 Settings::isAutoPreviewOnForNewProjects() const
 {
     return _autoPreviewEnabledForNewProjects->getValue();
+}
+
+bool
+Settings::isPauseViewerOnProjectLoadEnabled() const
+{
+    return _pauseViewerOnProjectLoad->getValue();
 }
 
 #ifdef NATRON_DOCUMENTATION_ONLINE

@@ -161,6 +161,8 @@ public:
 
     bool isAutoPreviewOnForNewProjects() const;
 
+    bool isPauseViewerOnProjectLoadEnabled() const;
+
     void getOpenFXPluginsSearchPaths(std::list<std::string>* paths) const;
 
     bool getUseStdOFXPluginsLocation() const;
@@ -500,6 +502,7 @@ private:
     KnobBoolPtr _autoPreviewEnabledForNewProjects;
     KnobBoolPtr _fixPathsOnProjectPathChanged;
     KnobBoolPtr _enableMappingFromDriveLettersToUNCShareNames;
+    KnobBoolPtr _pauseViewerOnProjectLoad;
 
     // General/Documentation
     KnobPagePtr _documentationPage;

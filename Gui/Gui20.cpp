@@ -413,6 +413,12 @@ Gui::addNewViewerTab(ViewerInstance* viewer,
         _imp->_viewerTabs.push_back(tab);
     }
     where->appendTab(tab, tab);
+
+    // [local patch] viewers created while a project is being opened start paused (Preferences > Project Setup)
+    if ( getApp() && getApp()->getProject() && getApp()->getProject()->isLoadingProject() &&
+         appPTR->getCurrentSettings()->isPauseViewerOnProjectLoadEnabled() ) {
+        tab->setViewerPaused(true, true);
+    }
     Q_EMIT viewersChanged();
 
     return tab;
